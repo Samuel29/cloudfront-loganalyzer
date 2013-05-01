@@ -55,7 +55,7 @@ public class Main {
     
   @SuppressWarnings("unchecked")
   private static Pipe createHeadPipe() {
-    Fields cloudFrontFields = new Fields(Columns.DateTime, Columns.EdgeLocation, Columns.Bytes, Columns.IPAddress, Columns.Operation, Columns.Domain, Columns.Object, Columns.HTTPResponse, Columns.UserAgent);
+    Fields cloudFrontFields = new Fields(Columns.DateTime, Columns.EdgeLocation, Columns.Bytes, Columns.IPAddress, Columns.Operation, Columns.Domain, Columns.Object, Columns.HTTPResponse, Columns.Referrer,  Columns.UserAgent);
     String w = "[\\s]+"; // whitespace regex
     String cfRegex = "([\\S]+[\\s]+[\\S]+)"  // DateTime
                + w + "([\\S]+)"              // EdgeLocation
@@ -65,9 +65,9 @@ public class Main {
                + w + "([\\S]+)"              // Domain
                + w + "([\\S]+)"              // Object
                + w + "([\\S]+)"              // HttpResponse
-               + w + "[\\S]+"                //   (ignore junk)
+               + w + "[\\S]+"                // Referrer
                + w + "(.+)";                 // UserAgent
-    int groups[] = {1,2,3,4,5,6,7,8,9};
+    int groups[] = {1,2,3,4,5,6,7,8,9,10};
     RegexParser regexParser = new RegexParser(cloudFrontFields, cfRegex, groups);
     Pipe pipe = new Pipe("head");
 
@@ -159,6 +159,14 @@ public class Main {
         reportsToGenerate.add(new FieldAggregatedReporterAssembly("edge-location", Columns.EdgeLocation));
         reportFlag = true;
       }
+      if (cmd.hasOption("userAgentReport")) {
+        reportsToGenerate.add(new FieldAggregatedReporterAssembly("user-agent", Columns.UserAgent));
+        reportFlag = true;
+      }
+      if (cmd.hasOption("referrerReport")) {
+        reportsToGenerate.add(new FieldAggregatedReporterAssembly("referrer", Columns.Referrer));
+        reportFlag = true;
+      }
     }
     if (!reportFlag) {
       // Choosing all reports if none specified
@@ -166,6 +174,8 @@ public class Main {
       reportsToGenerate.add(new FieldAggregatedReporterAssembly("object-popularity", Columns.Object));
       reportsToGenerate.add(new TimeBucketedReporterAssembly("overall-volume", delta));
       reportsToGenerate.add(new FieldAggregatedReporterAssembly("edge-location", Columns.EdgeLocation));
+      reportsToGenerate.add(new FieldAggregatedReporterAssembly("user-agent", Columns.UserAgent));
+      reportsToGenerate.add(new FieldAggregatedReporterAssembly("referrer", Columns.Referrer));
     }
 
 
@@ -185,7 +195,7 @@ public class Main {
     Tap source = new Hfs(new TextLine(), tempS3Copy);
     Tap sink = 
         new Hfs(new SequenceFile(new Fields(Columns.DateTime, Columns.EdgeLocation, Columns.Bytes, 
-                                            Columns.IPAddress, Columns.Object, Columns.HTTPResponse, Columns.TimeStamp)), 
+                                            Columns.IPAddress, Columns.Object, Columns.HTTPResponse, Columns.UserAgent, Columns.Referrer, Columns.TimeStamp)),
                 tempPath);
     Flow headFlow = connector.connect(source, sink, createHeadPipe());
     headFlow.start();
@@ -318,7 +328,9 @@ public class Main {
     options.addOption(new Option("objectPopularityReport","generate the Object Popularity report"));
     options.addOption(new Option("clientIPReport","generate the Client IP report"));
     options.addOption(new Option("edgeLocationReport","generate the Edge Location report"));
-    return options;
+    options.addOption(new Option("userAgentReport","generate the User-Agent report"));
+    options.addOption(new Option("referrerReport","generate the Referrer report"));
+      return options;
   }
 
 }
